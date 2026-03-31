@@ -1,5 +1,5 @@
 (*
- * Copyright (c) 2022 Christiano Haesbaert <haesbaert@haesbaert.org>
+ * Copyright (c) 2026 Tim McGilchrist <timmcgil@gmail.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,25 +14,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-external num_cpu : unit -> int = "caml_num_cpu"
+external windows_topology : unit -> (int * int * int * int * int) list
+  = "caml_windows_topology"
 
 let t =
-  match Processor_apple_ioreg.fetch () with
-  | [] ->
-    (* ioreg may return nothing in VMs, fall back to fake topology *)
-    let num_cpu = num_cpu () in
-    let rec loop l i =
-      if i = -1 then l
-      else
-        let cpu = Cpu.(make ~id:i ~kind:P_core ~smt:0 ~core:i ~socket:0) in
-        loop (cpu :: l) (pred i)
-    in
-    loop [] (pred num_cpu)
-  | entries ->
-    let id = ref (-1) in
-    List.map
-      (fun (core, ecore) ->
-        id := succ !id;
-        let kind = if ecore = 1 then Cpu.E_core else Cpu.P_core in
-        Cpu.make ~id:!id ~kind ~smt:0 ~core ~socket:0 )
-      entries
+  List.map
+    (fun (id, is_ecore, smt, core, socket) ->
+      let kind = if is_ecore = 1 then Cpu.E_core else Cpu.P_core in
+      Cpu.make ~id ~kind ~smt ~core ~socket )
+    (windows_topology ())
